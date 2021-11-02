@@ -100,34 +100,6 @@ jobs:
           # If gettext was cached, this step is necessary to relink it to /usr/local/
           brew link gettext
 
-      - name: Create universal gettext with arm64 bottle
-        if: matrix.publish && steps.cache-gettext.outputs.cache-hit != 'true'
-        env:
-          HOMEBREW_NO_AUTO_UPDATE: 1
-        run: |
-          set -o verbose
-
-          # Manually download and extract gettext bottle for arm64
-          source /dev/stdin <<<"$(brew info --json gettext | jq -r '"gettext_url=\(.[0].bottle.stable.files.arm64_big_sur.url)", "gettext_ver=\(.[0].versions.stable)"')"
-
-          mkdir gettext_download
-          cd gettext_download
-          wget --no-verbose --header 'Authorization: Bearer QQ==' -O gettext.tar.gz ${gettext_url}
-          tar xf gettext.tar.gz
-
-          # Just for diagnostics, print out the old archs. This should be a thin binary (x86_64)
-          lipo -info /usr/local/lib/libintl.a
-          lipo -info /usr/local/lib/libintl.dylib
-
-          # Create a universal binary by patching the custom built x86_64 one with the downloaded arm64 one.
-          # Modify the actual binaries in /usr/local/Cellar instead of the symlinks to allow caching to work.
-          lipo -create -output /usr/local/Cellar/gettext/${gettext_ver}/lib/libintl.a /usr/local/Cellar/gettext/${gettext_ver}/lib/libintl.a ./gettext/${gettext_ver}/lib/libintl.a
-          lipo -create -output /usr/local/Cellar/gettext/${gettext_ver}/lib/libintl.dylib /usr/local/Cellar/gettext/${gettext_ver}/lib/libintl.dylib ./gettext/${gettext_ver}/lib/libintl.dylib
-
-          # Print out the new archs and verify they are universal with 2 archs.
-          lipo -info /usr/local/lib/libintl.a | grep 'x86_64 arm64'
-          lipo -info /usr/local/lib/libintl.dylib | grep 'x86_64 arm64'
-
       # Set up remaining packages and tools
 
       - name: Install packages
@@ -161,7 +133,7 @@ jobs:
             --with-tlib=ncurses
             --enable-cscope
             --enable-gui=macvim
-            --with-compiledby="GitHub Actions"
+            --with-compiledby="Joy Jin"
           )
           if ${{ matrix.publish == true }}; then
             CONFOPT+=(
@@ -171,7 +143,7 @@ jobs:
               --enable-rubyinterp=dynamic
               --enable-luainterp=dynamic
               --with-lua-prefix=/usr/local
-              --with-macarchs="x86_64 arm64"
+              --with-macarchs="x86_64"
             )
           else
             CONFOPT+=(
@@ -197,11 +169,6 @@ jobs:
           grep -q -- "-DDYNAMIC_PYTHON3_DLL=\\\\\"${vi_cv_dll_name_python3}\\\\\"" src/auto/config.mk
           grep -q -- "-DDYNAMIC_RUBY_DLL=\\\\\"${vi_cv_dll_name_ruby}\\\\\"" src/auto/config.mk
 
-          # Also search for the arm64 overrides for the default library locations, which are different from x86_64
-          # because Homebrew puts them at a different place.
-          grep -q -- "-DDYNAMIC_PYTHON3_DLL_ARM64=\\\\\"${vi_cv_dll_name_python3_arm64}\\\\\"" src/auto/config.mk
-          grep -q -- "-DDYNAMIC_RUBY_DLL_ARM64=\\\\\"${vi_cv_dll_name_ruby_arm64}\\\\\"" src/auto/config.mk
-          grep -q -- "-DDYNAMIC_LUA_DLL_ARM64=\\\\\"${vi_cv_dll_name_lua_arm64}\\\\\"" src/auto/config.mk
 
       - name: Show configure output
         run: |
@@ -250,13 +217,7 @@ jobs:
             echo 'Found external dynamic linkage!'; false
           fi
 
-          # Make sure we are building universal x86_64 / arm64 builds and didn't accidentally create a thin app.
-          check_arch() {
-            local archs=($(lipo -archs "$1"))
-            if [[ ${archs[@]} != "x86_64 arm64" ]]; then
-              echo "Wrong arch(s) in $1: ${archs[@]}"; false
-            fi
-          }
+
           check_arch "${VIM_BIN}"
           check_arch "${MACVIM_BIN}"
 
