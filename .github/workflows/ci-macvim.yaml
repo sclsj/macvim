@@ -39,9 +39,6 @@ jobs:
       matrix:
         include:
           - os: macos-10.15
-            xcode: 11.7
-          - os: macos-10.15
-          - os: macos-11
             publish: true
 
     runs-on: ${{ matrix.os }}
@@ -239,15 +236,12 @@ jobs:
       # do it manually, for two reasons: 1) signing / notarization are currently done out of CI, 2) we want to manually
       # format our release notes and add pictures to make them look nice.
       - name: Build MacVim dmg image
-        if: startsWith(github.ref, 'refs/tags/') && matrix.publish
         run: |
           # Use the --skip-jenkins flag to skip the prettify osascript calls which could fail due to permission issues in
           # CI environment.
           make -C src macvim-dmg CREATEDMG_FLAGS=--skip-jenkins
 
       - name: Upload MacVim image
-      
-        if: startsWith(github.ref, 'refs/tags/') && matrix.publish
         uses: actions/upload-artifact@v2
         with:
           name: MacVim.dmg
