@@ -189,35 +189,6 @@ jobs:
           ${VIM_BIN} -u NONE -i NONE --not-a-term -esNX -V1 -S ci/if_ver-1.vim -c quit
           ${VIM_BIN} -u NONE -i NONE --not-a-term -esNX -V1 -S ci/if_ver-2.vim -c quit
 
-      - name: Smoketest
-        if: matrix.publish
-        run: |
-          set -o verbose
-
-          macvim_excmd() {
-            ${VIM_BIN} -u NONE -i NONE -g -f -X -V1 -es "$@" -c 'echo ""' -c 'qall!' 2>&1
-          }
-
-          # Smoketest scripting languages
-          macvim_excmd -c 'lua print("Test")'
-          macvim_excmd -c 'perl VIM::Msg("Test")'
-          macvim_excmd -c 'py import sys; print("Test")'
-          macvim_excmd -c 'py3 import sys; print("Test")'
-          macvim_excmd -c 'ruby puts("Test")'
-
-          # Check that localized messages work by printing ':version' and checking against localized word
-          macvim_excmd -c 'lang es_ES' -c 'version' | grep Enlazado
-
-          # Make sure there isn't any dynamic linkage to third-party dependencies in the built binary, as we should only use
-          # static linkage to avoid dependency hell. Test that all those dylib's are in /usr/lib which is bundled with macOS and not third-party.
-          if otool -L ${VIM_BIN} | grep '\.dylib\s' | grep -v '^\s*/usr/lib/'; then
-            echo 'Found external dynamic linkage!'; false
-          fi
-
-
-          check_arch "${VIM_BIN}"
-          check_arch "${MACVIM_BIN}"
-
       - name: Update Vim help tags
         if: matrix.publish
         run: make -C runtime/doc vimtags VIMEXE=../../${VIM_BIN}
